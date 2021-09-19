@@ -8,3 +8,5 @@ class TrackableObject:
 		# initialize a boolean used to indicate if the object has
 		# already been counted or not
 		self.counted = False
+		self.stepA = False
+		self.stepB = False
