@@ -4,7 +4,7 @@ from mylib.trackableobject import TrackableObject
 from imutils.video import VideoStream
 from imutils.video import FPS
 import numpy as np
-import time, dlib, cv2, imutils
+import time, dlib, cv2, imutils, redis, struct
 
 def run(url):
 	# initialize the list of class labels MobileNet SSD was trained to
@@ -31,7 +31,7 @@ def run(url):
 	# instantiate our centroid tracker, then initialize a list to store
 	# each of our dlib correlation trackers, followed by a dictionary to
 	# map each unique object ID to a TrackableObject
-	ct = CentroidTracker(maxDisappeared=40, maxDistance=50)
+	ct = CentroidTracker(maxDisappeared=480, maxDistance=1000)
 	trackers = []
 	trackableObjects = {}
 
@@ -44,8 +44,7 @@ def run(url):
 	empty=[]
 	empty1=[]
 
-	# start the frames per second throughput estimator
-	fps = FPS().start()
+	r = redis.Redis(host='localhost', port=6379, db=0)
 
 	# loop over frames from the video stream
 	while True:
@@ -56,7 +55,7 @@ def run(url):
 		# resize the frame to have a maximum width of 500 pixels (the
 		# less data we have, the faster we can process it), then convert
 		# the frame from BGR to RGB for dlib
-		frame = imutils.resize(frame, width = 500)
+		frame = imutils.resize(frame, width = 640)
 		rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
 		# if the frame dimensions are empty, set them
@@ -222,20 +221,12 @@ def run(url):
 
 		for (i, (k, v)) in enumerate(info2):
 			text = "{}: {}".format(k, v)
-			cv2.putText(frame, text, (265, H - ((i * 20) + 60)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
-		# show the output frame
-		cv2.imshow("Real-Time Monitoring/Analysis Window", frame)
-		key = cv2.waitKey(1) & 0xFF
-
-		# if the `q` key was pressed, break from the loop
-		if key == ord("q"):
-			break
+			cv2.putText(frame, text, (400, H - ((i * 20) + 60)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
 		# increment the total number of frames processed thus far and
 		# then update the FPS counter
 		totalFrames += 1
-		fps.update()
+		# fps.update()
 
 		if status == "Waiting" and not isPosted:
 			print("POST")
@@ -243,12 +234,16 @@ def run(url):
 		elif status == "Tracking" and isPosted:
 			isPosted = False
 
-	# stop the timer and display FPS information
-	fps.stop()
-	print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
-	print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+		toRedis(r, frame, 'image')		
 
-	# close any open windows
-	cv2.destroyAllWindows()
+def toRedis(r, a, n):
+   """Store given Numpy array 'a' in Redis under key 'n'"""
+   h, w = a.shape[:2]
+   shape = struct.pack('>II', h, w)
+   encoded = shape + a.tobytes()
+
+   # Store encoded data in Redis
+   r.set(n, encoded)
+   return
 
 run("rtsp://192.168.0.107:8554/cam")
