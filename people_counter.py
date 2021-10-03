@@ -4,7 +4,7 @@ from mylib.trackableobject import TrackableObject
 from imutils.video import VideoStream
 from imutils.video import FPS
 import numpy as np
-import time, dlib, cv2, imutils, redis, struct
+import time, dlib, cv2, imutils, redis, struct, requests, json
 
 def run(url):
 	# initialize the list of class labels MobileNet SSD was trained to
@@ -31,7 +31,7 @@ def run(url):
 	# instantiate our centroid tracker, then initialize a list to store
 	# each of our dlib correlation trackers, followed by a dictionary to
 	# map each unique object ID to a TrackableObject
-	ct = CentroidTracker(maxDisappeared=480, maxDistance=1000)
+	ct = CentroidTracker(maxDisappeared=100, maxDistance=100)
 	trackers = []
 	trackableObjects = {}
 
@@ -45,6 +45,12 @@ def run(url):
 	empty1=[]
 
 	r = redis.Redis(host='localhost', port=6379, db=0)
+
+	host_url = "http://192.168.0.107:5001//eyebeacon/dashboard/people_counter"
+	headers = {
+            'Content-Type': 'application/json'
+        }
+
 
 	# loop over frames from the video stream
 	while True:
@@ -214,7 +220,7 @@ def run(url):
 		("Total people inside", x),
 		]
 
-                # Display the output
+        # Display the output
 		for (i, (k, v)) in enumerate(info):
 			text = "{}: {}".format(k, v)
 			cv2.putText(frame, text, (10, H - ((i * 20) + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
@@ -229,8 +235,16 @@ def run(url):
 		# fps.update()
 
 		if status == "Waiting" and not isPosted:
-			print("POST")
-			isPosted = True
+			try:
+				payload = json.dumps({
+								"enter": totalDown,
+								"exit": totalUp,
+								"total": len(empty1)-len(empty)
+							})
+				requests.request("POST", host_url, headers=headers, data=payload)
+				isPosted = True
+			except:
+				pass
 		elif status == "Tracking" and isPosted:
 			isPosted = False
 
