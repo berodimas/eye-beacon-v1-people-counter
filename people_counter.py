@@ -31,7 +31,7 @@ def run(url):
 	# instantiate our centroid tracker, then initialize a list to store
 	# each of our dlib correlation trackers, followed by a dictionary to
 	# map each unique object ID to a TrackableObject
-	ct = CentroidTracker(maxDisappeared=40, maxDistance=50)
+	ct = CentroidTracker(maxDisappeared=100, maxDistance=100)
 	trackers = []
 	trackableObjects = {}
 
@@ -56,7 +56,7 @@ def run(url):
 		# resize the frame to have a maximum width of 500 pixels (the
 		# less data we have, the faster we can process it), then convert
 		# the frame from BGR to RGB for dlib
-		frame = imutils.resize(frame, width = 500)
+		frame = imutils.resize(frame, width = 640)
 		rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
 		# if the frame dimensions are empty, set them
