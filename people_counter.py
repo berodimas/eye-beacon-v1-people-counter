@@ -4,9 +4,16 @@ from mylib.trackableobject import TrackableObject
 from imutils.video import VideoStream
 from imutils.video import FPS
 import numpy as np
-import time, dlib, cv2, imutils, redis, struct, requests, json
+import time, dlib, cv2, imutils, redis, struct, requests, json, argparse
 
-def run(url):
+ap = argparse.ArgumentParser()
+ap.add_argument("-u", "--url", type=str,
+                help="url for http host")
+ap.add_argument("-i", "--input", type=str,
+                help="input for IP camera")
+args = vars(ap.parse_args())
+
+def run(input):
 	# initialize the list of class labels MobileNet SSD was trained to
 	# detect
 	CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
@@ -18,7 +25,7 @@ def run(url):
 	net = cv2.dnn.readNetFromCaffe(
 		'mobilenet_ssd/MobileNetSSD_deploy.prototxt', 'mobilenet_ssd/MobileNetSSD_deploy.caffemodel')
 
-	vs = VideoStream(url).start()
+	vs = VideoStream(input).start()
 	time.sleep(2.0)
 
 	# initialize the frame dimensions (we'll set them as soon as we read
@@ -44,9 +51,9 @@ def run(url):
 	empty=[]
 	empty1=[]
 
-	r = redis.Redis(host='localhost', port=6379, db=0)
+	r = redis.Redis(host='redis', port=6379, db=0)
 
-	host_url = "http://192.168.0.107:5001//eyebeacon/dashboard/people_counter"
+	host_url = args["url"]
 	headers = {
             'Content-Type': 'application/json'
         }
@@ -260,4 +267,4 @@ def toRedis(r, a, n):
    r.set(n, encoded)
    return
 
-run("rtsp://192.168.0.107:8554/cam")
+run(args["input"])
