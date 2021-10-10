@@ -250,8 +250,9 @@ def run(input):
 							})
 				requests.request("POST", host_url, headers=headers, data=payload)
 				isPosted = True
+				print("POSTED")
 			except:
-				pass
+				print("FAILED")
 		elif status == "Tracking" and isPosted:
 			isPosted = False
 
