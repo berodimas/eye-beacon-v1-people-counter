@@ -1,4 +1,4 @@
-FROM python:3.8-alpine
+FROM python:3.8-slim-buster
 
 LABEL mantainer="Dimas Adrian Mukti <dadrianm25@gmail.com>"
 
