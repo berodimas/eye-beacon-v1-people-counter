@@ -1,17 +1,22 @@
 from numpy.lib.shape_base import _put_along_axis_dispatcher
 from mylib.centroidtracker import CentroidTracker
 from mylib.trackableobject import TrackableObject
+from mylib import thread
 from imutils.video import VideoStream
-from imutils.video import FPS
 import numpy as np
-import time, dlib, cv2, imutils, redis, struct, requests, json, argparse
+import time, dlib, cv2, imutils, redis, struct, requests, json, argparse, threading
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-u", "--url", type=str,
                 help="url for http host")
 ap.add_argument("-i", "--input", type=str,
                 help="input for IP camera")
+ap.add_argument("-r", "--redis", type=str,
+                help="input for redis host")
 args = vars(ap.parse_args())
+
+Thread = True
+r = redis.Redis(host=args["redis"], port=6379, db=0)
 
 def run(input):
 	# initialize the list of class labels MobileNet SSD was trained to
@@ -51,12 +56,13 @@ def run(input):
 	empty=[]
 	empty1=[]
 
-	r = redis.Redis(host='redis', port=6379, db=0)
-
 	host_url = args["url"]
 	headers = {
             'Content-Type': 'application/json'
         }
+	
+	if Thread:
+		vs = thread.ThreadingClass(input)
 
 
 	# loop over frames from the video stream
@@ -154,7 +160,7 @@ def run(input):
 		# object crosses this line we will determine whether they were
 		# moving 'up' or 'down'
 		cv2.line(frame, (0, H // 2), (W, H // 2), (0, 0, 0), 3)
-		cv2.putText(frame, "-Prediction border - Entrance-", (10, H - ((i * 20) + 200)),
+		cv2.putText(frame, "-Prediction border - Entrance-", (0, (H // 2) + 20),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
 
 		# use the centroid tracker to associate the (1) old object
@@ -200,10 +206,10 @@ def run(input):
 							empty1.append(totalDown)
 							to.counted = True
 						
-					x = []
-					# compute the sum of total people inside
-					x.append(len(empty1)-len(empty))
-					#print("Total people inside:", x)
+						x = []
+						# compute the sum of total people inside
+						x.append(len(empty1)-len(empty))
+						#print("Total people inside:", x)
 
 
 			# store the trackable object in our dictionary
@@ -216,47 +222,17 @@ def run(input):
 				cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 			cv2.circle(frame, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
 
-		# construct a tuple of information we will be displaying on the
-		info = [
-		("Exit", totalUp),
-		("Enter", totalDown),
-		("Status", status),
-		]
-
-		info2 = [
-		("Total people inside", x),
-		]
-
-        # Display the output
-		for (i, (k, v)) in enumerate(info):
-			text = "{}: {}".format(k, v)
-			cv2.putText(frame, text, (10, H - ((i * 20) + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
-
-		for (i, (k, v)) in enumerate(info2):
-			text = "{}: {}".format(k, v)
-			cv2.putText(frame, text, (400, H - ((i * 20) + 60)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
 		# increment the total number of frames processed thus far and
-		# then update the FPS counter
 		totalFrames += 1
-		# fps.update()
 
 		if status == "Waiting" and not isPosted:
-			try:
-				payload = json.dumps({
-								"enter": totalDown,
-								"exit": totalUp,
-								"total": len(empty1)-len(empty)
-							})
-				requests.request("POST", host_url, headers=headers, data=payload)
-				isPosted = True
-				print("POSTED")
-			except:
-				print("FAILED")
+			x = threading.Thread(target=requestAPI, args=(totalUp, totalDown, empty1, empty, host_url, headers), daemon=True)
+			x.start()
+			isPosted = True
 		elif status == "Tracking" and isPosted:
 			isPosted = False
 
-		toRedis(r, frame, 'image')		
+		toRedis(r, frame, 'image')	
 
 def toRedis(r, a, n):
    """Store given Numpy array 'a' in Redis under key 'n'"""
@@ -267,5 +243,17 @@ def toRedis(r, a, n):
    # Store encoded data in Redis
    r.set(n, encoded)
    return
+
+def requestAPI(totalUp, totalDown, empty1, empty, host_url, headers):
+	try:
+		payload = json.dumps({
+						"enter": totalDown,
+						"exit": totalUp,
+						"total": len(empty1)-len(empty)
+					})
+		response = requests.request("POST", host_url, headers=headers, data=payload)
+		print(response.json())
+	except:
+		print(response.json())
 
 run(args["input"])
