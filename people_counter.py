@@ -257,7 +257,6 @@ def requestAPI(totalUp, totalDown, empty1, empty, host_url, headers):
 		response = requests.request("POST", host_url, headers=headers, data=payload)
 		print(response.json())
 	except:
-		response = requests.request("POST", host_url, headers=headers, data=payload)
-		print(response.json())
+		print("Failed to http request")
 
 run(args["input"])
