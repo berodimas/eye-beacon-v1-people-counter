@@ -7,6 +7,10 @@ import numpy as np
 import time, dlib, cv2, imutils, redis, struct, requests, json, argparse, threading
 
 ap = argparse.ArgumentParser()
+ap.add_argument("-p", "--prototxt", required=False,
+                help="path to Caffe 'deploy' prototxt file")
+ap.add_argument("-m", "--model", required=True,
+                help="path to Caffe pre-trained model")
 ap.add_argument("-u", "--url", type=str,
                 help="url for http host")
 ap.add_argument("-i", "--input", type=str,
@@ -27,8 +31,7 @@ def run(input):
 		"sofa", "train", "tvmonitor"]
 
 	# load our serialized model from disk
-	net = cv2.dnn.readNetFromCaffe(
-		'mobilenet_ssd/MobileNetSSD_deploy.prototxt', 'mobilenet_ssd/MobileNetSSD_deploy.caffemodel')
+	net = cv2.dnn.readNetFromCaffe(args["prototxt"], args["model"])
 
 	vs = VideoStream(input).start()
 	time.sleep(2.0)
@@ -254,6 +257,7 @@ def requestAPI(totalUp, totalDown, empty1, empty, host_url, headers):
 		response = requests.request("POST", host_url, headers=headers, data=payload)
 		print(response.json())
 	except:
+		response = requests.request("POST", host_url, headers=headers, data=payload)
 		print(response.json())
 
 run(args["input"])
